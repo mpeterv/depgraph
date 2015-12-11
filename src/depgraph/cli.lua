@@ -7,6 +7,8 @@ local version = "depgraph v" .. depgraph._VERSION
 local cli = argparse("lua-depgraph", version .. ", dependency analyzer and visualizer for Lua packages.")
 
 cli:command("list", "List all modules and external files.")
+cli:command("show", "Show all information about a module or an external file.")
+   :argument("name", "Module or external file name.")
 cli:command("dot", "Print graph representation in .dot format.")
    :argument("title", "Title of the graph.", "depgraph")
 
@@ -40,6 +42,8 @@ local function main(args)
 
    if args.list then
       print(depgraph.list(graph))
+   elseif args.show then
+      print(depgraph.show(graph, args.name))
    else
       print(depgraph.render(graph, args.title))
    end

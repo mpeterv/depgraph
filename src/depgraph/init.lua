@@ -325,6 +325,63 @@ function depgraph.list(graph)
    return table.concat(lines, "\n")
 end
 
+local function require_to_string(req)
+   local res = ("on line %d, column %d"):format(req.line, req.column)
+
+   if req.lazy then
+      if req.protected then
+         return res .. " (lazy, protected)"
+      else
+         return res .. " (lazy)"
+      end
+   elseif req.protected then
+      return res .. " (protected)"
+   else
+      return res
+   end
+end
+
+-- Return all information about a module or an external file as a string.
+function depgraph.show(graph, name)
+   local lines = {}
+
+   local file_object = graph.modules[name]
+
+   if not file_object then
+      for _, ext_file in ipairs(graph.ext_files) do
+         if ext_file.name == name then
+            file_object = ext_file
+            break
+         end
+      end
+   end
+
+   if not file_object then
+      return name .. " is not a module or an external file."
+   end
+
+   table.insert(lines, ("%s %s in %s"):format(
+      graph.modules[name] and "Module" or "External file", file_object.name, file_object.file))
+
+   if #file_object.deps > 0 then
+      table.insert(lines, "Dependencies:")
+
+      for _, dep in ipairs(file_object.deps) do
+         if #dep.requires == 1 then
+            table.insert(lines, ("   %s %s"):format(dep.name, require_to_string(dep.requires[1])))
+         else
+            table.insert(lines, ("   %s (%d times)"):format(dep.name, #dep.requires))
+
+            for _, req in ipairs(dep.requires) do
+               table.insert(lines, "      " .. require_to_string(req))
+            end
+         end
+      end
+   end
+
+   return table.concat(lines, "\n")
+end
+
 local normal_module_color = "black"
 local external_file_color = "blue"
 local external_module_color = "yellow"

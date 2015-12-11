@@ -180,7 +180,7 @@ end
 local function add_lua_files_from_table(graph, t, ext)
    if type(t) == "table" then
       for module_name, file in pairs(t) do
-         if type(file) == "string" and file:match("%.lua$") then
+         if type(file) == "string" and (file:match("%.lua$") or ext and loadfile(file)) then
             local ok, err
 
             if ext or type(module_name) ~= "string" then
@@ -238,7 +238,7 @@ local function add_lua_files_from_dir(graph, dir, prefix_dir, ext)
 
          if lfs.attributes(full_path, "mode") == "directory" then
             ok, err = add_lua_files_from_dir(graph, full_path, prefix_dir, ext)
-         elseif path:match("%.lua$") and lfs.attributes(full_path, "mode") == "file" then
+         elseif lfs.attributes(full_path, "mode") == "file" and (path:match("%.lua$") or ext and loadfile(full_path)) then
             if ext then
                ok, err = add_ext_file(graph, full_path)
             else

@@ -341,6 +341,20 @@ local function require_to_string(req)
    end
 end
 
+local function add_deps(lines, deps, bases)
+   for i, dep in ipairs(deps) do
+      if #dep.requires == 1 then
+         table.insert(lines, ("   %s %s"):format(bases and bases[i] or dep.name, require_to_string(dep.requires[1])))
+      else
+         table.insert(lines, ("   %s (%d times)"):format(bases and bases[i] or dep.name, #dep.requires))
+
+         for _, req in ipairs(dep.requires) do
+            table.insert(lines, "      " .. require_to_string(req))
+         end
+      end
+   end
+end
+
 -- Return all information about a module or an external file as a string.
 function depgraph.show(graph, name)
    local lines = {}
@@ -365,17 +379,37 @@ function depgraph.show(graph, name)
 
    if #file_object.deps > 0 then
       table.insert(lines, "Dependencies:")
+      add_deps(lines, file_object.deps)
+   end
 
-      for _, dep in ipairs(file_object.deps) do
-         if #dep.requires == 1 then
-            table.insert(lines, ("   %s %s"):format(dep.name, require_to_string(dep.requires[1])))
-         else
-            table.insert(lines, ("   %s (%d times)"):format(dep.name, #dep.requires))
+   if graph.modules[name] then
+      local matching_deps = {}
+      local bases = {}
 
-            for _, req in ipairs(dep.requires) do
-               table.insert(lines, "      " .. require_to_string(req))
+      for _, file_list in ipairs({graph.modules, graph.ext_files}) do
+         for _, dependant in ipairs(file_list) do
+            for _, dep in ipairs(dependant.deps) do
+               if dep.name == name or (dep.name:match("%.%*$") and dep.name:sub(1, -2) == name:sub(1, #dep.name - 1)) then
+                  table.insert(matching_deps, dep)
+                  local base = dependant.name
+
+                  if file_list == graph.ext_files then
+                     base = base .. " in " .. dependant.file
+                  end
+
+                  if dep.name ~= name then
+                     base = base .. " as " .. dep.name
+                  end
+
+                  table.insert(bases, base)
+               end
             end
          end
+      end
+
+      if #matching_deps > 0 then
+         table.insert(lines, "Depended on by:")
+         add_deps(lines, matching_deps, bases)
       end
    end
 

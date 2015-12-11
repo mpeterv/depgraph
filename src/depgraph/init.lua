@@ -302,7 +302,7 @@ function depgraph.list(graph)
 
    local function add_lines(file_objects)
       for _, file_object in ipairs(file_objects) do
-         table.insert(lines, ("  %s in %s: %d dependencies"):format(file_object.name, file_object.file, #file_object.deps))
+         table.insert(lines, ("   %s in %s"):format(file_object.name, file_object.file))
       end
    end
 

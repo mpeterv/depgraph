@@ -1,4 +1,5 @@
 local argparse = require "argparse"
+local lfs = require "lfs"
 local depgraph = require "depgraph"
 
 local version = "depgraph v" .. depgraph._VERSION
@@ -18,6 +19,18 @@ cli:flag("-v --version", "Show version info and exit.")
    :action(function() print(version) os.exit(0) end)
 
 local function main(args)
+   if #args.modules == 0 and #args.ext_files == 0 then
+      for path in lfs.dir(".") do
+         if path:match("%.rockspec$") and lfs.attributes(path, "mode") == "file" then
+            table.insert(args.modules, path)
+         end
+      end
+
+      if #args.modules > 1 then
+         args.modules = {}
+      end
+   end
+
    local graph, err = depgraph.make_graph(args.modules, args.ext_files, args.prefix)
 
    if not graph then

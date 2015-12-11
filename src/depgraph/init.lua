@@ -155,15 +155,17 @@ local function add_module(graph, file, name)
 end
 
 local function add_file(graph, file_name, prefix_dir)
+   local module_name = file_name
+
    if prefix_dir then
       if file_name:sub(1, #prefix_dir) ~= prefix_dir then
          return nil, ("File name '%s' does not start with '%s'"):format(file_name, prefix_dir)
       end
 
-      file_name = file_name:sub(#prefix_dir + 2)
+      module_name = file_name:sub(#prefix_dir + 2)
    end
 
-   local module_name = file_name:gsub("^%.[/\\]", ""):gsub("%.lua$", "")
+   module_name = module_name:gsub("^%.[/\\]", ""):gsub("%.lua$", "")
 
    if module_name:find("%.") then
       return nil, ("File name '%s' contains too many dots"):format(file_name)
@@ -258,6 +260,10 @@ end
 -- Module names will be inferred relatively to given prefix or current directory.
 -- Return graph table or nil, error message.
 function depgraph.make_graph(files, ext_files, prefix_dir)
+   if prefix_dir then
+      prefix_dir = prefix_dir:match("^(.-)[/\\]*$")
+   end
+
    local graph = {
       modules = {},
       ext_files = {}

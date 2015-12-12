@@ -341,12 +341,14 @@ local function require_to_string(req)
    end
 end
 
-local function add_deps(lines, deps, bases)
+local function add_deps(lines, deps, labels)
    for i, dep in ipairs(deps) do
+      local label = labels and labels[i] or dep.name
+
       if #dep.requires == 1 then
-         table.insert(lines, ("   %s %s"):format(bases and bases[i] or dep.name, require_to_string(dep.requires[1])))
+         table.insert(lines, ("   %s %s"):format(label, require_to_string(dep.requires[1])))
       else
-         table.insert(lines, ("   %s (%d times)"):format(bases and bases[i] or dep.name, #dep.requires))
+         table.insert(lines, ("   %s (%d times)"):format(label, #dep.requires))
 
          for _, req in ipairs(dep.requires) do
             table.insert(lines, "      " .. require_to_string(req))
@@ -384,24 +386,24 @@ function depgraph.show(graph, name)
 
    if graph.modules[name] then
       local matching_deps = {}
-      local bases = {}
+      local labels = {}
 
       for _, file_list in ipairs({graph.modules, graph.ext_files}) do
          for _, dependant in ipairs(file_list) do
             for _, dep in ipairs(dependant.deps) do
                if dep.name == name or (dep.name:match("%.%*$") and dep.name:sub(1, -2) == name:sub(1, #dep.name - 1)) then
                   table.insert(matching_deps, dep)
-                  local base = dependant.name
+                  local label = dependant.name
 
                   if file_list == graph.ext_files then
-                     base = base .. " in " .. dependant.file
+                     label = label .. " in " .. dependant.file
                   end
 
                   if dep.name ~= name then
-                     base = base .. " as " .. dep.name
+                     label = label .. " as " .. dep.name
                   end
 
-                  table.insert(bases, base)
+                  table.insert(labels, label)
                end
             end
          end
@@ -409,7 +411,7 @@ function depgraph.show(graph, name)
 
       if #matching_deps > 0 then
          table.insert(lines, "Depended on by:")
-         add_deps(lines, matching_deps, bases)
+         add_deps(lines, matching_deps, labels)
       end
    end
 
@@ -486,7 +488,7 @@ function depgraph.get_cycles(graph)
       table.insert(cycles, cycle)
    until not cycle
 
-      return cycles
+   return cycles
 end
 
 -- Return string representation of a list of cycles.
@@ -501,7 +503,7 @@ function depgraph.show_cycles(cycles)
       table.insert(lines, ("The %sshortest circular dependency has length %d:"):format(
          i == 1 and "" or "next ", #cycle))
       local deps = {}
-      local bases = {}
+      local labels = {}
 
       for j, current_module in ipairs(cycle) do
          local next_module = cycle[j + 1] or cycle[1]
@@ -509,12 +511,12 @@ function depgraph.show_cycles(cycles)
          for _, dep in ipairs(current_module.deps) do
             if dep.name == next_module.name then
                table.insert(deps, dep)
-               table.insert(bases, ("%s depends on %s"):format(current_module.name, next_module.name))
+               table.insert(labels, ("%s depends on %s"):format(current_module.name, next_module.name))
             end
          end
       end
 
-      add_deps(lines, deps, bases)
+      add_deps(lines, deps, labels)
    end
 
    return table.concat(lines, "\n")

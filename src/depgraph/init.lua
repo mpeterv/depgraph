@@ -426,6 +426,61 @@ function depgraph.show(graph, name)
    return table.concat(lines, "\n")
 end
 
+-- Return information about external dependencies of the graph as a string.
+function depgraph.deps(graph)
+   local ext_modules = {}
+
+   for _, file_list in ipairs({graph.modules, graph.ext_files}) do
+      for _, file_object in ipairs(file_list) do
+         for _, dep in ipairs(file_object.deps) do
+            if not ext_modules[dep.name] and dep.name ~= "*" then
+               local satisfied
+
+               if dep.name:match("%.%*$") then
+                  for _, m in ipairs(graph.modules) do
+                     if dep.name:sub(1, -2) == m.name:sub(1, #dep.name - 1) then
+                        satisfied = true
+                        break
+                     end
+                  end
+               elseif graph.modules[dep.name] then
+                  satisfied = true
+               end
+
+               if not satisfied then
+                  ext_modules[dep.name] = {
+                     deps = {},
+                     labels = {}
+                  }
+                  table.insert(ext_modules, dep.name)
+               end
+            end
+
+            if ext_modules[dep.name] then
+               local label = file_object.name
+
+               if file_list == graph.ext_files then
+                  label = label .. " in " .. file_object.file
+               end
+
+               table.insert(ext_modules[dep.name].deps, dep)
+               table.insert(ext_modules[dep.name].labels, label)
+            end
+         end
+      end
+   end
+
+   table.sort(ext_modules)
+   local lines = {("%d external dependenc%s."):format(#ext_modules, #ext_modules == 1 and "y" or "ies")}
+
+   for _, name in ipairs(ext_modules) do
+      table.insert(lines, name .. " required by:")
+      add_deps(lines, ext_modules[name].deps, ext_modules[name].labels)
+   end
+
+   return table.concat(lines, "\n")
+end
+
 -- Return the next shortest cycle in the graph or nil.
 -- Adds deps in cycle to dep_blacklist.
 local function get_cycle(graph, dep_blacklist, strict)

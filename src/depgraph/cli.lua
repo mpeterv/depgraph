@@ -9,6 +9,7 @@ local cli = argparse("lua-depgraph", version .. ", dependency analyzer and visua
 cli:command("list", "List all modules and external files.")
 cli:command("show", "Show all information about a module\nor an external file.")
    :argument("name", "Module or external file name.")
+cli:command("deps", "Show external dependencies of the graph.")
 cli:command("cycles", "Show circular dependencies.")
    :flag("--strict", "Ignore lazy dependencies.")
 local dot = cli:command("dot", "Print graph representation in .dot format.")
@@ -49,6 +50,8 @@ local function main(args)
       output = depgraph.list(graph)
    elseif args.show then
       output, err = depgraph.show(graph, args.name)
+   elseif args.deps then
+      output = depgraph.deps(graph)
    elseif args.cycles then
       output = depgraph.show_cycles(depgraph.get_cycles(graph, args.strict))
    else

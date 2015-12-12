@@ -117,6 +117,50 @@ lua-depgraph dot | dot -Tgif -o pl.gif
 
 [![Penlight dependency graph](http://i.imgur.com/JzLDc8P.gif)](http://i.imgur.com/JzLDc8P.gif)
 
+From LuaRocks root directory:
+
+```
+lua-depgraph -m src/luarocks -p src -e src/bin cycles
+11 circular dependencies found.
+The shortest circular dependency has length 1:
+   luarocks.fetch depends on luarocks.fetch on line 374, column 15 (lazy)
+The next shortest circular dependency has length 2:
+   luarocks.build depends on luarocks.install on line 380, column 23 (lazy)
+   luarocks.install depends on luarocks.build on line 172, column 21 (lazy)
+The next shortest circular dependency has length 2:
+   luarocks.cfg depends on luarocks.util on line 20, column 14
+   luarocks.util depends on luarocks.cfg (2 times)
+      on line 268, column 16 (lazy)
+      on line 486, column 16 (lazy)
+The next shortest circular dependency has length 2:
+   luarocks.deps depends on luarocks.fetch on line 697, column 18 (lazy)
+   luarocks.fetch depends on luarocks.deps on line 11, column 14
+The next shortest circular dependency has length 2:
+   luarocks.deps depends on luarocks.install on line 419, column 20 (lazy)
+   luarocks.install depends on luarocks.deps on line 12, column 14
+The next shortest circular dependency has length 2:
+   luarocks.deps depends on luarocks.search on line 418, column 19 (lazy)
+   luarocks.search depends on luarocks.deps on line 11, column 14
+The next shortest circular dependency has length 2:
+   luarocks.fs depends on luarocks.fs.lua on line 66, column 16
+   luarocks.fs.lua depends on luarocks.fs on line 7, column 12
+The next shortest circular dependency has length 2:
+   luarocks.manif depends on luarocks.repos on line 18, column 15
+   luarocks.repos depends on luarocks.manif on line 12, column 15
+The next shortest circular dependency has length 2:
+   luarocks.manif depends on luarocks.search on line 14, column 16
+   luarocks.search depends on luarocks.manif on line 10, column 15
+The next shortest circular dependency has length 3:
+   luarocks.deps depends on luarocks.manif_core on line 19, column 20
+   luarocks.manif_core depends on luarocks.type_check on line 9, column 20
+   luarocks.type_check depends on luarocks.deps on line 9, column 14
+The next shortest circular dependency has length 4:
+   luarocks.cfg depends on luarocks.persist on line 42, column 17
+   luarocks.persist depends on luarocks.util on line 10, column 14
+   luarocks.util depends on luarocks.fs on line 49, column 15 (lazy)
+   luarocks.fs depends on luarocks.cfg on line 14, column 13
+```
+
 ## License
 
 MIT.

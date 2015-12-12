@@ -40,18 +40,18 @@ local function scan_expr(requires, local_to_funcs, node, nested, protected)
    if node.tag == "Function" then
       scan_function(requires, local_to_funcs, node, true, protected)
    else
-      scan_exprs(requires, local_to_funcs, node, nested, protected)
-
       if node.tag == "Call" then
          local callee = get_name(node[1])
 
          if callee == "require" then
             add_require(requires, node[1], node[2], nested, protected)
          elseif callee == "pcall" or callee == "xpcall" then
-            if node[2] and node[2].tag == "Id" and local_to_funcs[node[2]] then
+            if local_to_funcs[node[2]] then
                for _, func in ipairs(local_to_funcs[node[2]]) do
                   scan_function(requires, local_to_funcs, func, nested, true)
                end
+            elseif node[2] and node[2].tag == "Function" then
+               scan_function(requires, local_to_funcs, node[2], nested, true)
             else
                callee = get_name(node[2])
 
@@ -61,6 +61,8 @@ local function scan_expr(requires, local_to_funcs, node, nested, protected)
             end
          end
       end
+
+      scan_exprs(requires, local_to_funcs, node, nested, protected)
    end
 end
 

@@ -21,7 +21,7 @@ The first is to tell it how to find Lua modules to be added to the graph using `
 You can also add external files that are not Lua modules themselves but can depend on modules, e.g. examples, tests, scripts, using `-e` option. It can accept directories, too.
 
 The second part is to tell `lua-depgraph` what it should do with the graph. Currently you can print list of all nodes using `list` command,
-show all information about a particular module using `show`, look for circular dependencies using `cycles`, and export the graph into .dot format using `dot`.
+show all information about a particular module using `show`, show external dependencies using `deps`, look for circular dependencies using `cycles`, and export the graph into .dot format using `dot`.
 
 ## Examples
 
@@ -159,6 +159,40 @@ The next shortest circular dependency has length 4:
    luarocks.persist depends on luarocks.util on line 10, column 14
    luarocks.util depends on luarocks.fs on line 49, column 15 (lazy)
    luarocks.fs depends on luarocks.cfg on line 14, column 13
+```
+
+```
+lua-depgraph -m src/luarocks -p src -e src/bin deps
+12 external dependencies.
+debug required by:
+   luarocks.util on line 13, column 15
+lfs required by:
+   luarocks.fs.lua on line 22, column 24 (protected)
+ltn12 required by:
+   luarocks.fs.lua on line 558, column 15
+   luarocks.upload.api on line 123, column 31 (protected)
+luarocks.site_config required by:
+   luarocks.cfg on line 28, column 28 (protected)
+md5 required by:
+   luarocks.fs.lua on line 23, column 24 (protected)
+mimetypes required by:
+   luarocks.upload.multipart on line 19, column 45 (lazy, protected)
+posix required by:
+   luarocks.fs.lua on line 24, column 28 (protected)
+socket.ftp required by:
+   luarocks.fs.lua on line 19, column 19 (protected)
+socket.http required by:
+   luarocks.fs.lua on line 18, column 28 (protected)
+   luarocks.upload.api (2 times)
+      on line 208, column 32 (lazy, protected)
+      on line 214, column 29 (lazy, protected)
+ssl.https required by:
+   luarocks.fs.lua on line 559, column 32 (protected)
+   luarocks.upload.api on line 200, column 29 (lazy, protected)
+zip required by:
+   luarocks.fs.lua on line 21, column 29 (protected)
+zlib required by:
+   luarocks.tools.zip on line 7, column 14
 ```
 
 ## License

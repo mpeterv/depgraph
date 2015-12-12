@@ -304,7 +304,10 @@ end
 
 -- Return listing of modules and external files in the graph as a string.
 function depgraph.list(graph)
-   local lines = {}
+   local lines = {("%d module%s, %d external file%s."):format(
+      #graph.modules, #graph.modules == 1 and "" or "s",
+      #graph.ext_files, #graph.ext_files == 1 and "" or "s"
+   )}
 
    local function add_lines(file_objects)
       for _, file_object in ipairs(file_objects) do

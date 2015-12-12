@@ -131,7 +131,7 @@ local function make_file_object(name, file)
    requires, err = scan(src)
 
    if not requires then
-      return nil, err
+      return nil, ("Could not scan %s: %s"):format(name, err)
    end
 
    return {

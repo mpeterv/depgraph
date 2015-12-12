@@ -158,18 +158,14 @@ end
 -- refer to a subtree of modules,
 -- 'lazy' key with true value for a call inside a function,
 -- 'protected' key with true value for a call using 'pcall' or 'xpcall'.
--- On syntax error return nil, {line = line, column = column, message = message}.
+-- On syntax error return nil, error message.
 local function scan(src)
    local modules, err = utils.pcall(scan_or_throw_syntax_error, src)
 
    if modules then
       return modules
    else
-      return nil, {
-         line = err.line,
-         column = err.column,
-         message = err.msg
-      }
+      return nil, ("syntax error on line %d, column %d: %s"):format(err.line, err.column, err.msg)
    end
 end
 

@@ -360,25 +360,30 @@ local function add_deps(lines, deps, labels)
    end
 end
 
--- Return all information about a module or an external file as a string.
-function depgraph.show(graph, name)
-   local lines = {}
+local function get_file_object(graph, name)
+   if graph.modules[name] then
+      return graph.modules[name]
+   end
 
-   local file_object = graph.modules[name]
-
-   if not file_object then
-      for _, ext_file in ipairs(graph.ext_files) do
-         if ext_file.name == name then
-            file_object = ext_file
-            break
-         end
+   for _, ext_file in ipairs(graph.ext_files) do
+      if ext_file.name == name then
+         return ext_file
       end
    end
 
+   return nil, name .. " is not a module or an external file."
+end
+
+-- Return all information about a module or an external file as a string.
+-- If it's missing, return nil and error message.
+function depgraph.show(graph, name)
+   local file_object, err = get_file_object(graph, name)
+
    if not file_object then
-      return name .. " is not a module or an external file."
+      return nil, err
    end
 
+   local lines = {}
    table.insert(lines, ("%s %s in %s"):format(
       graph.modules[name] and "Module" or "External file", file_object.name, file_object.file))
 
@@ -535,20 +540,40 @@ local normal_dep_style = "solid"
 local lazy_dep_style = "dashed"
 
 -- Return graph representation in .dot format.
-function depgraph.render(graph, title)
+-- If root is specified, only nodes reachable from it will be included.
+-- If root doesn't name a node return nil, error message.
+function depgraph.render(graph, title, root)
+   local root_is_module
+
+   if root then
+      root_is_module = graph.modules[root]
+      local err
+      root, err = get_file_object(graph, root)
+
+      if not root then
+         return nil, err
+      end
+   end
+
    local lines = {("digraph %q {"):format(title)}
    local ids = {}
    local next_id = 1
+
+   local add_edges
 
    local function add_node(file_object, color)
       if not ids[file_object] then
          ids[file_object] = next_id
          table.insert(lines, ("%d [color = %s label = %q]"):format(next_id, color, file_object.name))
          next_id = next_id + 1
+
+         if root and file_object.deps then
+            add_edges(file_object)
+         end
       end
    end
 
-   local function add_edges(file_object)
+   function add_edges(file_object)
       for _, dep in ipairs(file_object.deps) do
          if not ids[dep.name] then
             local dep_file = graph.modules[dep.name] or {name = dep.name}
@@ -563,14 +588,18 @@ function depgraph.render(graph, title)
       end
    end
 
-   for _, file_object in ipairs(graph.ext_files) do
-      add_node(file_object, external_file_color)
-      add_edges(file_object)
-   end
+   if root then
+      add_node(root, root_is_module and normal_module_color or external_file_color)
+   else
+      for _, file_object in ipairs(graph.ext_files) do
+         add_node(file_object, external_file_color)
+         add_edges(file_object)
+      end
 
-   for _, file_object in ipairs(graph.modules) do
-      add_node(file_object, normal_module_color)
-      add_edges(file_object)
+      for _, file_object in ipairs(graph.modules) do
+         add_node(file_object, normal_module_color)
+         add_edges(file_object)
+      end
    end
 
    table.insert(lines, "}")

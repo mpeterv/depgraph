@@ -11,8 +11,9 @@ cli:command("show", "Show all information about a module\nor an external file.")
    :argument("name", "Module or external file name.")
 cli:command("cycles", "Show circular dependencies.")
    :flag("--strict", "Ignore lazy dependencies.")
-cli:command("dot", "Print graph representation in .dot format.")
-   :argument("title", "Title of the graph.", "depgraph")
+local dot = cli:command("dot", "Print graph representation in .dot format.")
+dot:argument("title", "Title of the graph.", "depgraph")
+dot:option("--root", "Select only dependencies of <root> module\nor exernal file, recursively.")
 
 cli:option("-m --module", "Add a file, a directory or a rockspec\nto the graph as a module.")
    :count("*"):argname("<path>"):target("modules")
@@ -42,17 +43,25 @@ local function main(args)
       os.exit(1)
    end
 
+   local output
+
    if args.list then
-      print(depgraph.list(graph))
+      output = depgraph.list(graph)
    elseif args.show then
-      print(depgraph.show(graph, args.name))
+      output, err = depgraph.show(graph, args.name)
    elseif args.cycles then
-      print(depgraph.show_cycles(depgraph.get_cycles(graph, args.strict)))
+      output = depgraph.show_cycles(depgraph.get_cycles(graph, args.strict))
    else
-      print(depgraph.render(graph, args.title))
+      output, err = depgraph.render(graph, args.title, args.root)
    end
 
-   os.exit(0)
+   if output then
+      print(output)
+      os.exit(0)
+   else
+      io.stderr:write("Error: ", err, "\n")
+      os.exit(1)
+   end
 end
 
 cli:action(main)

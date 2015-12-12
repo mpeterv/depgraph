@@ -10,7 +10,7 @@ depgraph is a library and a command-line tool for building and analyzing
 graph of dependencies between Lua modules within a package.
 
 depgraph scans Lua files for all usages of 'require' and can distinguish
-normal, lazy (from within a function) and protected calls.
+normal, lazy (from within a function), conditional, and protected calls.
 
 depgraph command-line tool named 'lua-depgraph' can show gathered data in textual form or
 export it in .dot format, which can be turned into an image using GraphViz.

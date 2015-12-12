@@ -14,7 +14,7 @@ local function get_name(node)
    end
 end
 
-local function add_require(requires, req_node, arg_node, nested, protected)
+local function add_require(requires, req_node, arg_node, nested, protected, cond)
    local name
 
    if arg_node then
@@ -30,72 +30,73 @@ local function add_require(requires, req_node, arg_node, nested, protected)
       line = req_node.location.line,
       column = req_node.location.column,
       lazy = nested,
+      conditional = cond,
       protected = protected
    })
 end
 
 local scan_exprs, scan_function
 
-local function scan_expr(requires, local_to_funcs, node, nested, protected)
+local function scan_expr(requires, local_to_funcs, node, nested, protected, cond)
    if node.tag == "Function" then
-      scan_function(requires, local_to_funcs, node, true, protected)
+      scan_function(requires, local_to_funcs, node, true, protected, cond)
    else
       if node.tag == "Call" then
          local callee = get_name(node[1])
 
          if callee == "require" then
-            add_require(requires, node[1], node[2], nested, protected)
+            add_require(requires, node[1], node[2], nested, protected, cond)
          elseif callee == "pcall" or callee == "xpcall" then
             if local_to_funcs[node[2]] then
                for _, func in ipairs(local_to_funcs[node[2]]) do
-                  scan_function(requires, local_to_funcs, func, nested, true)
+                  scan_function(requires, local_to_funcs, func, nested, true, cond)
                end
             elseif node[2] and node[2].tag == "Function" then
-               scan_function(requires, local_to_funcs, node[2], nested, true)
+               scan_function(requires, local_to_funcs, node[2], nested, true, cond)
             else
                callee = get_name(node[2])
 
                if callee == "require" then
-                  add_require(requires, node[2], callee == "xpcall" and node[4] or node[3], nested, true)
+                  add_require(requires, node[2], callee == "xpcall" and node[4] or node[3], nested, true, cond)
                end
             end
          end
       end
 
-      scan_exprs(requires, local_to_funcs, node, nested, protected)
+      scan_exprs(requires, local_to_funcs, node, nested, protected, cond)
    end
 end
 
-function scan_exprs(requires, local_to_funcs, nodes, nested, protected)
+function scan_exprs(requires, local_to_funcs, nodes, nested, protected, cond)
    for _, node in ipairs(nodes) do
       if type(node) == "table" then
-         scan_expr(requires, local_to_funcs, node, nested, protected)
+         scan_expr(requires, local_to_funcs, node, nested, protected, cond)
       end
    end
 end
 
-local function scan_block(requires, local_to_funcs, nodes, nested, protected)
+local function scan_block(requires, local_to_funcs, nodes, nested, protected, cond)
    for _, node in ipairs(nodes) do
       if node.tag == "Do" then
-         scan_block(requires, local_to_funcs, node, nested, protected)
+         scan_block(requires, local_to_funcs, node, nested, protected, cond)
       elseif node.tag == "While" then
-         scan_expr(requires, local_to_funcs, node[1], nested, protected)
-         scan_block(requires, local_to_funcs, node[2], nested, protected)
+         scan_expr(requires, local_to_funcs, node[1], nested, protected, cond)
+         scan_block(requires, local_to_funcs, node[2], nested, protected, cond)
       elseif node.tag == "Repeat" then
-         scan_block(requires, local_to_funcs, node[1], nested, protected)
-         scan_expr(requires, local_to_funcs, node[2], nested, protected)
+         scan_block(requires, local_to_funcs, node[1], nested, protected, cond)
+         scan_expr(requires, local_to_funcs, node[2], nested, protected, cond)
       elseif node.tag == "Fornum" then
-         scan_block(requires, local_to_funcs, node[5] or node[4], nested, protected)
+         scan_block(requires, local_to_funcs, node[5] or node[4], nested, protected, cond)
       elseif node.tag == "Forin" then
-         scan_block(requires, local_to_funcs, node[3], nested, protected)
+         scan_block(requires, local_to_funcs, node[3], nested, protected, cond)
       elseif node.tag == "If" then
          for i = 1, #node - 1, 2 do
-            scan_expr(requires, local_to_funcs, node[i], nested, protected)
-            scan_block(requires, local_to_funcs, node[i + 1], nested, protected)
+            scan_expr(requires, local_to_funcs, node[i], nested, protected, i ~= 1 or cond)
+            scan_block(requires, local_to_funcs, node[i + 1], nested, protected, true)
          end
 
          if #node % 2 == 1 then
-            scan_block(requires, local_to_funcs, node[#node], nested, protected)
+            scan_block(requires, local_to_funcs, node[#node], nested, protected, true)
          end
       elseif node.tag == "Local" or node.tag == "Set" then
          local lhs, rhs = node[1], node[2]
@@ -106,7 +107,7 @@ local function scan_block(requires, local_to_funcs, nodes, nested, protected)
                   local_to_funcs[lhs[i].var] = local_to_funcs[lhs[i].var] or {}
                   table.insert(local_to_funcs[lhs[i].var], rhs_node)
                else
-                  scan_expr(requires, local_to_funcs, rhs_node, nested, protected)
+                  scan_expr(requires, local_to_funcs, rhs_node, nested, protected, cond)
                end
             end
          end
@@ -114,22 +115,22 @@ local function scan_block(requires, local_to_funcs, nodes, nested, protected)
          local_to_funcs[node[1].var] = local_to_funcs[node[1].var] or {}
          table.insert(local_to_funcs[node[1].var], node[2])
       elseif node.tag == "Call" or node.tag == "Invoke" then
-         scan_expr(requires, local_to_funcs, node, nested, protected)
+         scan_expr(requires, local_to_funcs, node, nested, protected, cond)
       elseif node.tag == "Return" then
-         scan_exprs(requires, local_to_funcs, node, nested, protected)
+         scan_exprs(requires, local_to_funcs, node, nested, protected, cond)
       end
    end
 end
 
-function scan_function(requires, local_to_funcs, node, nested, protected)
+function scan_function(requires, local_to_funcs, node, nested, protected, cond)
    if not node.scanned then
       node.scanned = true
 
-      scan_block(requires, local_to_funcs, node[2], nested, protected)
+      scan_block(requires, local_to_funcs, node[2], nested, protected, cond)
 
       for _, funcs in pairs(local_to_funcs) do
          for _, func in ipairs(funcs) do
-            scan_function(requires, local_to_funcs, func, true, protected)
+            scan_function(requires, local_to_funcs, func, true, protected, cond)
          end
       end
    end
@@ -157,6 +158,7 @@ end
 -- 'name' key with the name of the required module, with '.*' suffix if the call may
 -- refer to a subtree of modules,
 -- 'lazy' key with true value for a call inside a function,
+-- 'conditional' key with true value for a call inside an 'if' branch,
 -- 'protected' key with true value for a call using 'pcall' or 'xpcall'.
 -- On syntax error return nil, error message.
 local function scan(src)

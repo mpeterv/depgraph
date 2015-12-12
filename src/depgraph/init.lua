@@ -99,6 +99,7 @@ local function group_by_module(requires)
             name = require_table.name,
             requires = {},
             protected = true,
+            conditional = true,
             lazy = true
          }
          table.insert(deps, dep)
@@ -109,6 +110,10 @@ local function group_by_module(requires)
 
       if not require_table.lazy then
          dep.lazy = nil
+      end
+
+      if not require_table.conditional and not require_table.lazy then
+         dep.conditional = nil
       end
 
       if not require_table.protected then
@@ -336,6 +341,12 @@ local function require_to_string(req)
          return res .. " (lazy, protected)"
       else
          return res .. " (lazy)"
+      end
+   elseif req.conditional then
+      if req.protected then
+         return res .. " (conditional, protected)"
+      else
+         return res .. " (conditional)"
       end
    elseif req.protected then
       return res .. " (protected)"
@@ -592,7 +603,8 @@ local external_module_color = "yellow"
 local normal_dep_color = "black"
 local protected_dep_color = "green"
 local normal_dep_style = "solid"
-local lazy_dep_style = "dashed"
+local cond_dep_style = "dashed"
+local lazy_dep_style = "dotted"
 
 -- Return graph representation in .dot format.
 -- If root is specified, only nodes reachable from it will be included.
@@ -639,7 +651,7 @@ function depgraph.render(graph, title, root)
          table.insert(lines, ("%d -> %d [color = %s style = %s]"):format(
             ids[file_object], ids[dep.name],
             dep.protected and protected_dep_color or normal_dep_color,
-            dep.lazy and lazy_dep_style or normal_dep_style))
+            dep.lazy and lazy_dep_style or (dep.conditional and cond_dep_style or normal_dep_style)))
       end
    end
 

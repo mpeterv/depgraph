@@ -56,7 +56,7 @@ local function scan_expr(requires, local_to_funcs, node, nested, protected)
                callee = get_name(node[2])
 
                if callee == "require" then
-                  add_require(requires, node[2], node[3], nested, true)
+                  add_require(requires, node[2], callee == "xpcall" and node[4] or node[3], nested, true)
                end
             end
          end

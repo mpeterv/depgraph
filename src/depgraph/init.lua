@@ -416,23 +416,18 @@ function depgraph.show(graph, name)
    return table.concat(lines, "\n")
 end
 
--- Return array of modules forming the shortest cycle or nil.
--- Each module in the array depends on the next one, and the last one depends on the first one.
-function depgraph.get_cycle(graph)
-   local modules = graph.modules
-   local name_to_index = {}
-
-   for i, m in ipairs(modules) do
-      name_to_index[m.name] = i
-   end
-
+-- Return the next shortest cycle in the graph or nil.
+-- Adds deps in cycle to dep_blacklist.
+local function get_cycle(graph, dep_blacklist)
    local best_dist
    local best_root
    local best_parents
+   local best_deps
 
-   for _, root_module in ipairs(modules) do
+   for _, root_module in ipairs(graph.modules) do
       -- Simple path-tracking breadth-first search for the root node.
       local parents = {}
+      local deps = {}
       local queue = {root_module}
       local i, j = 1, 1
       local dists = {}
@@ -442,11 +437,12 @@ function depgraph.get_cycle(graph)
          i = i + 1
 
          for _, dep in ipairs(current_module.deps) do
-            local dep_module = modules[dep.name]
+            local dep_module = graph.modules[dep.name]
 
-            if dep_module and not dists[dep_module] then
+            if dep_module and not dists[dep_module] and not dep_blacklist[dep] then
                dists[dep_module] = (dists[current_module] or 0) + 1
                parents[dep_module] = current_module
+               deps[dep_module] = dep
                j = j + 1
                queue[j] = dep_module
             end
@@ -458,6 +454,7 @@ function depgraph.get_cycle(graph)
             best_dist = dists[root_module]
             best_root = root_module
             best_parents = parents
+            best_deps = deps
          end
       end
    end
@@ -469,34 +466,57 @@ function depgraph.get_cycle(graph)
       repeat
          m = best_parents[m]
          table.insert(cycle, 1, m)
+         dep_blacklist[best_deps[m]] = true
       until m == best_root
 
       return cycle
    end
 end
 
--- Return string representation of a cycle.
-function depgraph.show_cycle(cycle)
-   if not cycle then
+-- Return array of cycles in the graph sorted by length.
+-- The cycles do not share edges.
+-- Each cycle is an array of modules forming the cycle.
+-- Each module in the array depends on the next one, and the last one depends on the first one.
+function depgraph.get_cycles(graph)
+   local cycles = {}
+   local dep_blacklist = {}
+
+   repeat
+      local cycle = get_cycle(graph, dep_blacklist)
+      table.insert(cycles, cycle)
+   until not cycle
+
+      return cycles
+end
+
+-- Return string representation of a list of cycles.
+function depgraph.show_cycles(cycles)
+   if #cycles == 0 then
       return "No circular dependencies found."
    end
 
-   local lines = {("Shortest circular dependency has length %d:"):format(#cycle)}
-   local deps = {}
-   local bases = {}
+   local lines = {("%d circular dependenc%s found."):format(#cycles, #cycles == 1 and "y" or "ies")}
 
-   for i, current_module in ipairs(cycle) do
-      local next_module = cycle[i + 1] or cycle[1]
+   for i, cycle in ipairs(cycles) do
+      table.insert(lines, ("The %sshortest circular dependency has length %d:"):format(
+         i == 1 and "" or "next ", #cycle))
+      local deps = {}
+      local bases = {}
 
-      for _, dep in ipairs(current_module.deps) do
-         if dep.name == next_module.name then
-            table.insert(deps, dep)
-            table.insert(bases, ("%s depends on %s"):format(current_module.name, next_module.name))
+      for j, current_module in ipairs(cycle) do
+         local next_module = cycle[j + 1] or cycle[1]
+
+         for _, dep in ipairs(current_module.deps) do
+            if dep.name == next_module.name then
+               table.insert(deps, dep)
+               table.insert(bases, ("%s depends on %s"):format(current_module.name, next_module.name))
+            end
          end
       end
+
+      add_deps(lines, deps, bases)
    end
 
-   add_deps(lines, deps, bases)
    return table.concat(lines, "\n")
 end
 

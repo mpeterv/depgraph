@@ -420,7 +420,7 @@ end
 
 -- Return the next shortest cycle in the graph or nil.
 -- Adds deps in cycle to dep_blacklist.
-local function get_cycle(graph, dep_blacklist)
+local function get_cycle(graph, dep_blacklist, strict)
    local best_dist
    local best_root
    local best_parents
@@ -441,7 +441,7 @@ local function get_cycle(graph, dep_blacklist)
          for _, dep in ipairs(current_module.deps) do
             local dep_module = graph.modules[dep.name]
 
-            if dep_module and not dists[dep_module] and not dep_blacklist[dep] then
+            if dep_module and not dists[dep_module] and not dep_blacklist[dep] and (not strict or not dep.lazy) then
                dists[dep_module] = (dists[current_module] or 0) + 1
                parents[dep_module] = current_module
                deps[dep_module] = dep
@@ -479,12 +479,13 @@ end
 -- The cycles do not share edges.
 -- Each cycle is an array of modules forming the cycle.
 -- Each module in the array depends on the next one, and the last one depends on the first one.
-function depgraph.get_cycles(graph)
+-- If strict is true, lazy dependencies are ignored.
+function depgraph.get_cycles(graph, strict)
    local cycles = {}
    local dep_blacklist = {}
 
    repeat
-      local cycle = get_cycle(graph, dep_blacklist)
+      local cycle = get_cycle(graph, dep_blacklist, strict)
       table.insert(cycles, cycle)
    until not cycle
 

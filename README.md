@@ -29,6 +29,7 @@ From Penlight root directory:
 
 ```
 lua-depgraph list
+39 modules, 0 external files.
 Modules:
    pl in lua/pl/init.lua
    pl.Date in lua/pl/Date.lua
@@ -115,7 +116,7 @@ Depended on by:
 lua-depgraph dot | dot -Tgif -o pl.gif
 ```
 
-[![Penlight dependency graph](http://i.imgur.com/JzLDc8P.gif)](http://i.imgur.com/JzLDc8P.gif)
+[![Penlight dependency graph](http://i.imgur.com/UyZG3y4.gif)](http://i.imgur.com/UyZG3y4.gif)
 
 From LuaRocks root directory:
 
@@ -167,30 +168,30 @@ lua-depgraph -m src/luarocks -p src -e src/bin deps
 debug required by:
    luarocks.util on line 13, column 15
 lfs required by:
-   luarocks.fs.lua on line 22, column 24 (protected)
+   luarocks.fs.lua on line 22, column 24 (conditional, protected)
 ltn12 required by:
-   luarocks.fs.lua on line 558, column 15
+   luarocks.fs.lua on line 558, column 15 (conditional)
    luarocks.upload.api on line 123, column 31 (protected)
 luarocks.site_config required by:
-   luarocks.cfg on line 28, column 28 (protected)
+   luarocks.cfg on line 28, column 28 (conditional, protected)
 md5 required by:
-   luarocks.fs.lua on line 23, column 24 (protected)
+   luarocks.fs.lua on line 23, column 24 (conditional, protected)
 mimetypes required by:
    luarocks.upload.multipart on line 19, column 45 (lazy, protected)
 posix required by:
-   luarocks.fs.lua on line 24, column 28 (protected)
+   luarocks.fs.lua on line 24, column 28 (conditional, protected)
 socket.ftp required by:
-   luarocks.fs.lua on line 19, column 19 (protected)
+   luarocks.fs.lua on line 19, column 19 (conditional, protected)
 socket.http required by:
-   luarocks.fs.lua on line 18, column 28 (protected)
+   luarocks.fs.lua on line 18, column 28 (conditional, protected)
    luarocks.upload.api (2 times)
       on line 208, column 32 (lazy, protected)
       on line 214, column 29 (lazy, protected)
 ssl.https required by:
-   luarocks.fs.lua on line 559, column 32 (protected)
+   luarocks.fs.lua on line 559, column 32 (conditional, protected)
    luarocks.upload.api on line 200, column 29 (lazy, protected)
 zip required by:
-   luarocks.fs.lua on line 21, column 29 (protected)
+   luarocks.fs.lua on line 21, column 29 (conditional, protected)
 zlib required by:
    luarocks.tools.zip on line 7, column 14
 ```

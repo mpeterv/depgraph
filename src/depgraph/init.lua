@@ -416,6 +416,90 @@ function depgraph.show(graph, name)
    return table.concat(lines, "\n")
 end
 
+-- Return array of modules forming the shortest cycle or nil.
+-- Each module in the array depends on the next one, and the last one depends on the first one.
+function depgraph.get_cycle(graph)
+   local modules = graph.modules
+   local name_to_index = {}
+
+   for i, m in ipairs(modules) do
+      name_to_index[m.name] = i
+   end
+
+   local best_dist
+   local best_root
+   local best_parents
+
+   for _, root_module in ipairs(modules) do
+      -- Simple path-tracking breadth-first search for the root node.
+      local parents = {}
+      local queue = {root_module}
+      local i, j = 1, 1
+      local dists = {}
+
+      while i <= j do
+         local current_module = queue[i]
+         i = i + 1
+
+         for _, dep in ipairs(current_module.deps) do
+            local dep_module = modules[dep.name]
+
+            if dep_module and not dists[dep_module] then
+               dists[dep_module] = (dists[current_module] or 0) + 1
+               parents[dep_module] = current_module
+               j = j + 1
+               queue[j] = dep_module
+            end
+         end
+      end
+
+      if parents[root_module] then
+         if not best_dist or dists[root_module] < best_dist then
+            best_dist = dists[root_module]
+            best_root = root_module
+            best_parents = parents
+         end
+      end
+   end
+
+   if best_dist then
+      local cycle = {}
+      local m = best_root
+
+      repeat
+         m = best_parents[m]
+         table.insert(cycle, 1, m)
+      until m == best_root
+
+      return cycle
+   end
+end
+
+-- Return string representation of a cycle.
+function depgraph.show_cycle(cycle)
+   if not cycle then
+      return "No circular dependencies found."
+   end
+
+   local lines = {("Shortest circular dependency has length %d:"):format(#cycle)}
+   local deps = {}
+   local bases = {}
+
+   for i, current_module in ipairs(cycle) do
+      local next_module = cycle[i + 1] or cycle[1]
+
+      for _, dep in ipairs(current_module.deps) do
+         if dep.name == next_module.name then
+            table.insert(deps, dep)
+            table.insert(bases, ("%s depends on %s"):format(current_module.name, next_module.name))
+         end
+      end
+   end
+
+   add_deps(lines, deps, bases)
+   return table.concat(lines, "\n")
+end
+
 local normal_module_color = "black"
 local external_file_color = "blue"
 local external_module_color = "yellow"

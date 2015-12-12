@@ -7,8 +7,9 @@ local version = "depgraph v" .. depgraph._VERSION
 local cli = argparse("lua-depgraph", version .. ", dependency analyzer and visualizer for Lua packages.")
 
 cli:command("list", "List all modules and external files.")
-cli:command("show", "Show all information about a module or an external file.")
+cli:command("show", "Show all information about a module\nor an external file.")
    :argument("name", "Module or external file name.")
+cli:command("cycle", "Show the shortest dependency cycle in the graph.")
 cli:command("dot", "Print graph representation in .dot format.")
    :argument("title", "Title of the graph.", "depgraph")
 
@@ -44,6 +45,8 @@ local function main(args)
       print(depgraph.list(graph))
    elseif args.show then
       print(depgraph.show(graph, args.name))
+   elseif args.cycle then
+      print(depgraph.show_cycle(depgraph.get_cycle(graph)))
    else
       print(depgraph.render(graph, args.title))
    end

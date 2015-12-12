@@ -21,7 +21,7 @@ The first is to tell it how to find Lua modules to be added to the graph using `
 You can also add external files that are not Lua modules themselves but can depend on modules, e.g. examples, tests, scripts, using `-e` option. It can accept directories, too.
 
 The second part is to tell `lua-depgraph` what it should do with the graph. Currently you can print list of all nodes using `list` command,
-show all information about a particular module using `show`, and export the graph into .dot format using `dot`.
+show all information about a particular module using `show`, look for cicrcular dependencies using `cycle`, and export the graph into .dot format using `dot`.
 
 ## Examples
 

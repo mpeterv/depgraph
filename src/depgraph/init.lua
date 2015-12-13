@@ -377,7 +377,7 @@ local function get_file_object(graph, name)
    end
 
    for _, ext_file in ipairs(graph.ext_files) do
-      if ext_file.name == name then
+      if ext_file.name == name or ext_file.file == name then
          return ext_file
       end
    end

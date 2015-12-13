@@ -47,9 +47,11 @@ local function scan_expr(requires, local_to_funcs, node, nested, protected, cond
          if callee == "require" then
             add_require(requires, node[1], node[2], nested, protected, cond)
          elseif callee == "pcall" or callee == "xpcall" then
-            if local_to_funcs[node[2]] then
-               for _, func in ipairs(local_to_funcs[node[2]]) do
-                  scan_function(requires, local_to_funcs, func, nested, true, cond)
+            if node[2] and local_to_funcs[node[2].var] then
+               for _, func in ipairs(local_to_funcs[node[2].var]) do
+                  func.nested = nested
+                  func.protected = true
+                  func.cond = cond
                end
             elseif node[2] and node[2].tag == "Function" then
                scan_function(requires, local_to_funcs, node[2], nested, true, cond)
@@ -73,6 +75,15 @@ function scan_exprs(requires, local_to_funcs, nodes, nested, protected, cond)
          scan_expr(requires, local_to_funcs, node, nested, protected, cond)
       end
    end
+end
+
+local function register_local_func(local_to_funcs, local_node, func, protected, cond)
+   local var = local_node.var
+   local_to_funcs[var] = local_to_funcs[var] or {}
+   table.insert(local_to_funcs[var], func)
+   func.nested = true
+   func.protected = protected
+   func.cond = cond
 end
 
 local function scan_block(requires, local_to_funcs, nodes, nested, protected, cond)
@@ -104,16 +115,14 @@ local function scan_block(requires, local_to_funcs, nodes, nested, protected, co
          if rhs then
             for i, rhs_node in ipairs(rhs) do
                if rhs_node.tag == "Function" and lhs[i] and lhs[i].tag == "Id" and lhs[i].var then
-                  local_to_funcs[lhs[i].var] = local_to_funcs[lhs[i].var] or {}
-                  table.insert(local_to_funcs[lhs[i].var], rhs_node)
+                  register_local_func(local_to_funcs, lhs[i], rhs_node, protected, cond)
                else
                   scan_expr(requires, local_to_funcs, rhs_node, nested, protected, cond)
                end
             end
          end
       elseif node.tag == "Localrec" then
-         local_to_funcs[node[1].var] = local_to_funcs[node[1].var] or {}
-         table.insert(local_to_funcs[node[1].var], node[2])
+         register_local_func(local_to_funcs, node[1], node[2], protected, cond)
       elseif node.tag == "Call" or node.tag == "Invoke" then
          scan_expr(requires, local_to_funcs, node, nested, protected, cond)
       elseif node.tag == "Return" then
@@ -125,14 +134,10 @@ end
 function scan_function(requires, local_to_funcs, node, nested, protected, cond)
    if not node.scanned then
       node.scanned = true
-
+      nested = nested or node.nested
+      protected = protected or node.protected
+      cond = cond or node.cond
       scan_block(requires, local_to_funcs, node[2], nested, protected, cond)
-
-      for _, funcs in pairs(local_to_funcs) do
-         for _, func in ipairs(funcs) do
-            scan_function(requires, local_to_funcs, func, true, protected, cond)
-         end
-      end
    end
 end
 
@@ -147,7 +152,15 @@ local function scan_or_throw_syntax_error(src)
    linearize(chstate_stub, ast)
 
    local requires = {}
-   scan_block(requires, {}, ast)
+   local local_to_funcs = {}
+   scan_block(requires, local_to_funcs, ast)
+
+   for _, funcs in pairs(local_to_funcs) do
+      for _, func in ipairs(funcs) do
+         scan_function(requires, local_to_funcs, func)
+      end
+   end
+
    table.sort(requires, location_comparator)
    return requires
 end

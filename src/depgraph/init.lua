@@ -239,7 +239,15 @@ local function add_lua_files_from_dir(graph, dir, prefix_dir, ext)
       dir = dir .. dir_sep
    end
 
+   local paths = {}
+
    for path in lfs.dir(dir) do
+      table.insert(paths, path)
+   end
+
+   table.sort(paths)
+
+   for _, path in ipairs(paths) do
       if path ~= "." and path ~= ".." then
          local full_path = dir .. path
 

@@ -1,0 +1,6 @@
+return {
+   modules = {
+      depgraph = "src/depgraph/init.lua",
+      ["depgraph.*"] = "src"
+   }
+}

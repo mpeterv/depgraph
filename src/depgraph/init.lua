@@ -205,13 +205,17 @@ local function add_lua_files_from_table(graph, t, ext)
 end
 
 local function add_rockspec(graph, rockspec_name)
-   local rockspec = load_file(rockspec_name, "rockspec")
+   local rockspec, err = load_file(rockspec_name, "rockspec")
+
+   if not rockspec then
+      return nil, err
+   end
 
    if type(rockspec) ~= "table" or type(rockspec.build) ~= "table" then
       return nil, ("Rockspec %s does not contain build table"):format(rockspec_name)
    end
 
-   local ok, err = true
+   local ok = true
 
    if rockspec.build.type == "builtin" then
       ok, err = add_lua_files_from_table(graph, rockspec.build.modules)

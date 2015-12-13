@@ -54,9 +54,9 @@ local function scan_expr(requires, local_to_funcs, node, nested, protected, cond
             elseif node[2] and node[2].tag == "Function" then
                scan_function(requires, local_to_funcs, node[2], nested, true, cond)
             else
-               callee = get_name(node[2])
+               local protected_callee = get_name(node[2])
 
-               if callee == "require" then
+               if protected_callee == "require" then
                   add_require(requires, node[2], callee == "xpcall" and node[4] or node[3], nested, true, cond)
                end
             end

@@ -19,7 +19,7 @@ install:
   - luarocks make
 
 script:
-  - luacheck .
+  - luacheck src bin spec
   - busted -c
 
 after_success:

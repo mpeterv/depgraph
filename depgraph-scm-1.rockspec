@@ -6,7 +6,7 @@ source = {
 description = {
    summary = "Dependency analyzer and visualizer for Lua packages",
    detailed = [[
-depgraph is a library and a command-line tool for building and analyzing
+depgraph is a command-line tool for building, analyzing, and visualizing
 graph of dependencies between Lua modules within a package.
 
 depgraph scans Lua files for all usages of 'require' and can distinguish

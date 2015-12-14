@@ -1,10 +1,12 @@
 # depgraph
 
-depgraph is a library and a command-line tool for building and analyzing graph of dependencies between Lua modules within a package.
+[![Build Status](https://travis-ci.org/mpeterv/depgraph.svg?branch=master)](https://travis-ci.org/mpeterv/depgraph) [![Coverage Status](https://coveralls.io/repos/mpeterv/depgraph/badge.svg?branch=master&service=github)](https://coveralls.io/github/mpeterv/depgraph?branch=master)
+
+depgraph is a command-line tool for building, analyzing, and visualizing graph of dependencies between Lua modules within a package.
 
 ## Status
 
-It works, but it's not tested. Lua API is not documented. The first official release is coming sooner or later.
+It works. The first official release is coming sooner rather than later.
 
 ## Installation
 

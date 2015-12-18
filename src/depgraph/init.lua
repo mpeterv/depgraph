@@ -87,37 +87,40 @@ end
 -- array of dependencies.
 -- Each dependency has same fields as a require call except for location info.
 -- Additionally 'requires' key maps to array of require calls sharing the module name.
-local function group_by_module(requires)
+-- If strict is true, lazy dependencies are filtered out.
+local function group_by_module(requires, strict)
    local deps = {}
    local name_to_dep = {}
 
    for _, require_table in ipairs(requires) do
-      local dep = name_to_dep[require_table.name]
+      if not strict or not require_table.lazy then
+         local dep = name_to_dep[require_table.name]
+         
+         if not dep then
+            dep = {
+               name = require_table.name,
+               requires = {},
+               protected = true,
+               conditional = true,
+               lazy = true
+            }
+            table.insert(deps, dep)
+            name_to_dep[require_table.name] = dep
+         end
 
-      if not dep then
-         dep = {
-            name = require_table.name,
-            requires = {},
-            protected = true,
-            conditional = true,
-            lazy = true
-         }
-         table.insert(deps, dep)
-         name_to_dep[require_table.name] = dep
-      end
+         table.insert(dep.requires, require_table)
 
-      table.insert(dep.requires, require_table)
+         if not require_table.lazy then
+            dep.lazy = nil
+         end
 
-      if not require_table.lazy then
-         dep.lazy = nil
-      end
+         if not require_table.conditional and not require_table.lazy then
+            dep.conditional = nil
+         end
 
-      if not require_table.conditional and not require_table.lazy then
-         dep.conditional = nil
-      end
-
-      if not require_table.protected then
-         dep.protected = nil
+         if not require_table.protected then
+            dep.protected = nil
+         end
       end
    end
 
@@ -125,7 +128,7 @@ local function group_by_module(requires)
    return deps
 end
 
-local function make_file_object(name, file)
+local function make_file_object(name, file, strict)
    local src, err = read_file(file)
 
    if not src then
@@ -142,18 +145,18 @@ local function make_file_object(name, file)
    return {
       name = name,
       file = file,
-      deps = group_by_module(requires)
+      deps = group_by_module(requires, strict)
    }
 end
 
 local function add_ext_file(graph, file, name)
-   local obj, err = make_file_object(type(name) == "string" and name or file, file)
+   local obj, err = make_file_object(type(name) == "string" and name or file, file, graph.strict)
    table.insert(graph.ext_files, obj)
    return obj, err
 end
 
 local function add_module(graph, file, name)
-   local obj, err = make_file_object(name, file)
+   local obj, err = make_file_object(name, file, graph.strict)
    table.insert(graph.modules, obj)
    graph.modules[name] = obj
    return obj, err
@@ -277,18 +280,68 @@ local function add_lua_files_from_dir(graph, dir, prefix_dir, ext)
    return true
 end
 
+local function filter_reachable(graph, root)
+   local reachable = {}
+
+   local function mark(file_object)
+      if not reachable[file_object] then
+         reachable[file_object] = true
+
+         for _, dep in ipairs(file_object.deps) do
+            if graph.modules[dep.name] then
+               mark(graph.modules[dep.name])
+            end
+         end
+      end
+   end
+
+   local function sweep(file_objects)
+      local i = 1
+
+      while file_objects[i] do
+         if reachable[file_objects[i]] then
+            i = i + 1
+         else
+            file_objects[file_objects[i].name] = nil
+            table.remove(file_objects, i)
+         end
+      end
+   end
+
+   mark(root)
+   sweep(graph.ext_files)
+   sweep(graph.modules)
+end
+
+local function get_file_object(graph, name)
+   if graph.modules[name] then
+      return graph.modules[name]
+   end
+
+   for _, ext_file in ipairs(graph.ext_files) do
+      if ext_file.name == name or ext_file.file == name then
+         return ext_file
+      end
+   end
+
+   return nil, name .. " is not a module or an external file."
+end
+
 -- Scan dependencies in modules (passed as an array of file, directory, and rockspec paths)
 -- and external files (passed as an array of file and directory paths).
 -- Module names will be inferred relatively to given prefix or current directory.
+-- If strict mode is enabled, lazy dependencies are ignored.
+-- If root is given, only nodes reachable from it remain.
 -- Return graph table or nil, error message.
-function depgraph.make_graph(files, ext_files, prefix_dir)
+function depgraph.make_graph(files, ext_files, prefix_dir, strict, root)
    if prefix_dir then
       prefix_dir = prefix_dir:match("^(.-)[/\\]*$")
    end
 
    local graph = {
       modules = {},
-      ext_files = {}
+      ext_files = {},
+      strict = strict
    }
 
    local ok, err
@@ -317,6 +370,16 @@ function depgraph.make_graph(files, ext_files, prefix_dir)
       if not ok then
          return nil, err
       end
+   end
+
+   if root then
+      root, err = get_file_object(graph, root)
+
+      if not root then
+         return nil, err
+      end
+
+      filter_reachable(graph, root)
    end
 
    table.sort(graph.modules, name_comparator)
@@ -386,20 +449,6 @@ local function add_deps(lines, deps, labels)
          end
       end
    end
-end
-
-local function get_file_object(graph, name)
-   if graph.modules[name] then
-      return graph.modules[name]
-   end
-
-   for _, ext_file in ipairs(graph.ext_files) do
-      if ext_file.name == name or ext_file.file == name then
-         return ext_file
-      end
-   end
-
-   return nil, name .. " is not a module or an external file."
 end
 
 -- Return all information about a module or an external file as a string.
@@ -511,7 +560,7 @@ end
 
 -- Return the next shortest cycle in the graph or nil.
 -- Adds deps in cycle to dep_blacklist.
-local function get_cycle(graph, dep_blacklist, strict)
+local function get_cycle(graph, dep_blacklist)
    local best_dist
    local best_root
    local best_parents
@@ -532,7 +581,7 @@ local function get_cycle(graph, dep_blacklist, strict)
          for _, dep in ipairs(current_module.deps) do
             local dep_module = graph.modules[dep.name]
 
-            if dep_module and not dists[dep_module] and not dep_blacklist[dep] and (not strict or not dep.lazy) then
+            if dep_module and not dists[dep_module] and not dep_blacklist[dep] then
                dists[dep_module] = (dists[current_module] or 0) + 1
                parents[dep_module] = current_module
                deps[dep_module] = dep
@@ -570,13 +619,12 @@ end
 -- The cycles do not share edges.
 -- Each cycle is an array of modules forming the cycle.
 -- Each module in the array depends on the next one, and the last one depends on the first one.
--- If strict is true, lazy dependencies are ignored.
-function depgraph.get_cycles(graph, strict)
+function depgraph.get_cycles(graph)
    local cycles = {}
    local dep_blacklist = {}
 
    repeat
-      local cycle = get_cycle(graph, dep_blacklist, strict)
+      local cycle = get_cycle(graph, dep_blacklist)
       table.insert(cycles, cycle)
    until not cycle
 
@@ -624,21 +672,7 @@ local cond_dep_style = "dashed"
 local lazy_dep_style = "dotted"
 
 -- Return graph representation in .dot format.
--- If root is specified, only nodes reachable from it will be included.
--- If root doesn't name a node return nil, error message.
-function depgraph.render(graph, title, root)
-   local root_is_module
-
-   if root then
-      root_is_module = graph.modules[root]
-      local err
-      root, err = get_file_object(graph, root)
-
-      if not root then
-         return nil, err
-      end
-   end
-
+function depgraph.render(graph, title)
    local lines = {("digraph %q {"):format(title)}
    local ids = {}
    local next_id = 1
@@ -650,10 +684,6 @@ function depgraph.render(graph, title, root)
          ids[file_object] = next_id
          table.insert(lines, ("%d [color = %s label = %q]"):format(next_id, color, file_object.name))
          next_id = next_id + 1
-
-         if root and file_object.deps then
-            add_edges(file_object)
-         end
       end
    end
 
@@ -672,18 +702,14 @@ function depgraph.render(graph, title, root)
       end
    end
 
-   if root then
-      add_node(root, root_is_module and normal_module_color or external_file_color)
-   else
-      for _, file_object in ipairs(graph.ext_files) do
-         add_node(file_object, external_file_color)
-         add_edges(file_object)
-      end
+   for _, file_object in ipairs(graph.ext_files) do
+      add_node(file_object, external_file_color)
+      add_edges(file_object)
+   end
 
-      for _, file_object in ipairs(graph.modules) do
-         add_node(file_object, normal_module_color)
-         add_edges(file_object)
-      end
+   for _, file_object in ipairs(graph.modules) do
+      add_node(file_object, normal_module_color)
+      add_edges(file_object)
    end
 
    table.insert(lines, "}")

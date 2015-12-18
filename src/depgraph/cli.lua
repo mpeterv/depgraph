@@ -6,21 +6,23 @@ local version = "depgraph v" .. depgraph._VERSION
 
 local cli = argparse("luadepgraph", version .. ", dependency analyzer and visualizer for Lua packages.")
 
-cli:command("list", "List all modules and external files.")
-cli:command("show", "Show all information about a module\nor an external file.")
-   :argument("name", "Module or external file name.")
-cli:command("deps", "Show external dependencies of the graph.")
-cli:command("cycles", "Show circular dependencies.")
-   :flag("--strict", "Ignore lazy dependencies.")
-local dot = cli:command("dot", "Print graph representation in .dot format.")
-dot:argument("title", "Title of the graph.", "depgraph")
-dot:option("--root", "Select only dependencies of <root> module\nor exernal file, recursively.")
-
-cli:option("-m --module", "Add a file, a directory or a rockspec\nto the graph as a module.")
-   :count("*"):argname("<path>"):target("modules")
-cli:option("-e --ext-file", "Add a file or a directory to the graph\nas external file that can depend on modules.")
-   :count("*"):argname("<path>"):target("ext_files")
+cli:option("-m --modules", "Add files, directories or rockspecs\nto the graph as modules.")
+   :args("*"):count("*"):action("concat"):argname("<path>")
+cli:option("-e --ext-files", "Add files or directories to the graph\nas external files that can depend on modules.")
+   :args("*"):count("*"):action("concat"):argname("<path>")
 cli:option("-p --prefix", "Infer module names relatively to <prefix>.")
+
+cli:mutex(
+   cli:flag("--list", "List all modules and external files. (default)"),
+   cli:option("--show", "Show all information about a module\nor an external file."):argname("<module>"),
+   cli:flag("--deps", "Show external dependencies of the graph."),
+   cli:flag("--cycles", "Show circular dependencies."),
+   cli:option("--dot", "Print graph representation in .dot format.", "depgraph"):defmode("arg"):argname("<title>"):show_default(false)
+)
+
+cli:flag("--strict", "Ignore lazy dependencies.")
+cli:option("--root", "Select only dependencies of <root> module\nor external file, recursively.")
+
 cli:flag("-v --version", "Show version info and exit.")
    :action(function() print(version) os.exit(0) end)
 
@@ -37,7 +39,7 @@ local function main(args)
       end
    end
 
-   local graph, err = depgraph.make_graph(args.modules, args.ext_files, args.prefix)
+   local graph, err = depgraph.make_graph(args.modules, args.ext_files, args.prefix, args.strict, args.root)
 
    if not graph then
       io.stderr:write("Error: ", err, "\n")
@@ -46,16 +48,16 @@ local function main(args)
 
    local output
 
-   if args.list then
-      output = depgraph.list(graph)
-   elseif args.show then
-      output, err = depgraph.show(graph, args.name)
+   if args.show then
+      output, err = depgraph.show(graph, args.show)
    elseif args.deps then
       output = depgraph.deps(graph)
    elseif args.cycles then
-      output = depgraph.show_cycles(depgraph.get_cycles(graph, args.strict))
+      output = depgraph.show_cycles(depgraph.get_cycles(graph))
+   elseif args.dot then
+      output = depgraph.render(graph, args.dot)
    else
-      output, err = depgraph.render(graph, args.title, args.root)
+      output = depgraph.list(graph)
    end
 
    if output then

@@ -7,7 +7,7 @@ local function get_name(node)
       return
    elseif node.tag == "Id" then
       return node[1]
-   elseif node.tag == "Index" and node[1].tag == "Id" and node[1][1] == "_G" or node[1][1] == "_ENV" then
+   elseif node.tag == "Index" and node[1].tag == "Id" and (node[1][1] == "_G" or node[1][1] == "_ENV") then
       if node[2].tag == "String" then
          return node[2][1]
       end

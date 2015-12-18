@@ -182,9 +182,22 @@ local function add_file(graph, file_name, prefix_dir)
    return add_module(graph, file_name, module_name)
 end
 
+local function sorted_iter_values(...)
+   local values = {}
+
+   for value in ... do
+      table.insert(values, value)
+   end
+
+   table.sort(values)
+   return values
+end
+
 local function add_lua_files_from_table(graph, t, ext)
    if type(t) == "table" then
-      for module_name, file in pairs(t) do
+      for _, module_name in ipairs(sorted_iter_values(pairs(t))) do
+         local file = t[module_name]
+
          if type(file) == "string" and (file:match("%.lua$") or ext and loadfile(file)) then
             local ok, err
 
@@ -239,15 +252,7 @@ local function add_lua_files_from_dir(graph, dir, prefix_dir, ext)
       dir = dir .. dir_sep
    end
 
-   local paths = {}
-
-   for path in lfs.dir(dir) do
-      table.insert(paths, path)
-   end
-
-   table.sort(paths)
-
-   for _, path in ipairs(paths) do
+   for _, path in ipairs(sorted_iter_values(lfs.dir(dir))) do
       if path ~= "." and path ~= ".." then
          local full_path = dir .. path
 

@@ -29,6 +29,9 @@ Unless using a rockspec, pass prefix directory from where Lua modules can be loa
 * `--deps`: print a listing of all external dependencies of the graph.
 * `--cycles`: look for circular dependencies and show the shortest ones.
 * `--dot [<title>]`: export the graph in .dot format, which can be turned into an image using [Graphviz](http://www.graphviz.org/).
+    - Nodes with black border are modules, blue borders - external files, yellow - unresolved and external dependencies.
+    - Solid edges are normal dependencies, dashed edges - conditional dependencies, dotted - lazy ones.
+    - Black edges are unprotected dependencies, green ones are protected.
 
 There are some options that can preprocess or filter the graph before executing an action, run `luadepgraph -h` for more info.
 

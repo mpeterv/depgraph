@@ -14,7 +14,7 @@ if package.loaded["luacov.runner"] then
 end
 
 local function run(cmd)
-   local handler = io.popen(("%s bin/lua-depgraph.lua %s 2>&1"):format(lua, cmd))
+   local handler = io.popen(("%s bin/luadepgraph.lua %s 2>&1"):format(lua, cmd))
    local output = handler:read("*a")
    handler:close()
    return output
@@ -75,7 +75,7 @@ describe("cli", function()
                depgraph.luacheck.utils in src/depgraph/luacheck/utils.lua
                depgraph.scan in src/depgraph/scan.lua
             External files:
-               lua-depgraph in bin/lua-depgraph.lua
+               luadepgraph in bin/luadepgraph.lua
          ]]), run("list"))
       end)
 

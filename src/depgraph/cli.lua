@@ -4,7 +4,7 @@ local depgraph = require "depgraph"
 
 local version = "depgraph v" .. depgraph._VERSION
 
-local cli = argparse("lua-depgraph", version .. ", dependency analyzer and visualizer for Lua packages.")
+local cli = argparse("luadepgraph", version .. ", dependency analyzer and visualizer for Lua packages.")
 
 cli:command("list", "List all modules and external files.")
 cli:command("show", "Show all information about a module\nor an external file.")

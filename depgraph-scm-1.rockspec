@@ -12,8 +12,9 @@ graph of dependencies between Lua modules within a package.
 depgraph scans Lua files for all usages of 'require' and can distinguish
 normal, lazy (from within a function), conditional, and protected calls.
 
-depgraph command-line tool named 'lua-depgraph' can show gathered data in textual form or
-export it in .dot format, which can be turned into an image using GraphViz.
+depgraph command-line tool named 'luadepgraph' can show gathered data in
+textual form or export it in .dot format, which can be turned into an
+image using GraphViz. It can also detect circular and external dependencies.
 ]],
    homepage = "https://github.com/mpeterv/depgraph",
    license = "MIT"
@@ -36,7 +37,7 @@ build = {
    },
    install = {
       bin = {
-         ["lua-depgraph"] = "bin/lua-depgraph.lua"
+         ["luadepgraph"] = "bin/luadepgraph.lua"
       }
    }
 }

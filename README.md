@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/mpeterv/depgraph.svg?branch=master)](https://travis-ci.org/mpeterv/depgraph) [![Coverage Status](https://coveralls.io/repos/mpeterv/depgraph/badge.svg?branch=master&service=github)](https://coveralls.io/github/mpeterv/depgraph?branch=master)
 
-depgraph is a command-line tool for building, analyzing, and visualizing graph of dependencies between Lua modules within a package.
+depgraph provides `luadepgraph` command-line tool for building, analyzing, and visualizing graph of dependencies between Lua modules within a package.
 
 ## Status
 
@@ -14,15 +14,13 @@ Using LuaRocks: clone this repo, `cd` into it, run `luarocks make`.
 
 ## Usage
 
-Command-line tool is called `lua-depgraph` to avoid conflicts.
-
-An invocation of `lua-depgraph` consists of two parts.
+An invocation of `luadepgraph` consists of two parts.
 
 The first is to tell it how to find Lua modules to be added to the graph using `-m` option. It can be used several times, and accepts files, directories, and rockspecs. If not using a rockspec, pass prefix directory from where modules can be loaded using `-p`, e.g. if modules `foo.*` are in `src/foo/*.lua`, pass `-m src/foo -p src`. On the other hand, if there is a single rockspec in current directory, skip this step completely, it will be used automatically.
 
 You can also add external files that are not Lua modules themselves but can depend on modules, e.g. examples, tests, scripts, using `-e` option. It can accept directories, too.
 
-The second part is to tell `lua-depgraph` what it should do with the graph. Currently you can print list of all nodes using `list` command,
+The second part is to tell `luadepgraph` what it should do with the graph. Currently you can print list of all nodes using `list` command,
 show all information about a particular module using `show`, show external dependencies using `deps`, look for circular dependencies using `cycles`, and export the graph into .dot format using `dot`.
 
 ## Examples
@@ -30,7 +28,7 @@ show all information about a particular module using `show`, show external depen
 From Penlight root directory:
 
 ```
-lua-depgraph list
+luadepgraph list
 39 modules, 0 external files.
 Modules:
    pl in lua/pl/init.lua
@@ -75,7 +73,7 @@ Modules:
 ```
 
 ```
-lua-depgraph show pl.utils
+luadepgraph show pl.utils
 Module pl.utils in lua/pl/utils.lua
 Dependencies:
    * on line 82, column 13 (lazy)
@@ -115,7 +113,7 @@ Depended on by:
 ```
 
 ```
-lua-depgraph dot | dot -Tgif -o pl.gif
+luadepgraph dot | dot -Tgif -o pl.gif
 ```
 
 [![Penlight dependency graph](http://i.imgur.com/UyZG3y4.gif)](http://i.imgur.com/UyZG3y4.gif)
@@ -123,7 +121,7 @@ lua-depgraph dot | dot -Tgif -o pl.gif
 From LuaRocks root directory:
 
 ```
-lua-depgraph -m src/luarocks -p src -e src/bin cycles
+luadepgraph -m src/luarocks -p src -e src/bin cycles
 11 circular dependencies found.
 The shortest circular dependency has length 1:
    luarocks.fetch depends on luarocks.fetch on line 374, column 15 (lazy)
@@ -165,7 +163,7 @@ The next shortest circular dependency has length 4:
 ```
 
 ```
-lua-depgraph -m src/luarocks -p src -e src/bin deps
+luadepgraph -m src/luarocks -p src -e src/bin deps
 12 external dependencies.
 debug required by:
    luarocks.util on line 13, column 15

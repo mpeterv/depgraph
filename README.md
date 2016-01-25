@@ -16,7 +16,7 @@ Dependency target is inferred from the argument passed to `require` if it's a li
 
 `luadepgraph` needs to know which Lua files are part of the package and have to be included in its dependency graph. It can handle two types of files: regular modules and external files that can't be imported from other files, but can depend on modules, e.g. scripts and test files.
 
-Modules are specified using `-m/--modules` option and external files are added using `-e/--ext-files`. Both options accept several files or directories. `-m/--modules` also accepts rockspecs; if no modules are added but there is a single rockspec in current directory, it is be used automatically.
+Modules are specified using `-m/--modules` option and external files are added using `-e/--ext-files`. Both options accept several files or directories. `-m/--modules` also accepts rockspecs; if no modules are added but there is a single rockspec in current directory, it will be used automatically.
 
 Unless using a rockspec, pass prefix directory from where Lua modules can be loaded using `-p/--prefix`.
 

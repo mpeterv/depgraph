@@ -233,7 +233,7 @@ local function add_rockspec(graph, rockspec_name)
 
    local ok = true
 
-   if rockspec.build.type == "builtin" then
+   if rockspec.build.type == "builtin" or rockspec.build.type == "module" then
       ok, err = add_lua_files_from_table(graph, rockspec.build.modules)
    end
 

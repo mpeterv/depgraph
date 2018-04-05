@@ -1,6 +1,7 @@
 # depgraph
 
-[![Build Status](https://travis-ci.org/mpeterv/depgraph.svg?branch=master)](https://travis-ci.org/mpeterv/depgraph) [![Coverage Status](https://coveralls.io/repos/mpeterv/depgraph/badge.svg?branch=master&service=github)](https://coveralls.io/github/mpeterv/depgraph?branch=master)
+[![Build Status](https://travis-ci.org/mpeterv/depgraph.svg?branch=master)](https://travis-ci.org/mpeterv/depgraph)
+[![Coverage status](https://codecov.io/gh/mpeterv/depgraph/branch/master/graph/badge.svg)](https://codecov.io/gh/mpeterv/depgraph)
 
 depgraph provides `luadepgraph` command-line tool for building, analyzing, and visualizing graph of dependencies between Lua modules within a package. To install it using [LuaRocks](https://luarocks.org), open terminal and run `luarocks install depgraph` or `sudo luarocks install depgraph`.
 

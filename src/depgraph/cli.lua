@@ -1,34 +1,46 @@
 local argparse = require "argparse"
 local lfs = require "lfs"
 local depgraph = require "depgraph"
+local utils = require "depgraph.luacheck.utils"
 
-local version = "depgraph v" .. depgraph._VERSION
+local function fail(err)
+   io.stderr:write("Error: ", err, "\n")
+   os.exit(1)
+end
 
-local cli = argparse("luadepgraph", version .. ", dependency analyzer and visualizer for Lua packages.")
+local function main(argv)
+   local version = "depgraph v" .. depgraph._VERSION
 
-cli:option("-m --modules", "Add files, directories or rockspecs\nto the graph as modules.")
-   :args("*"):count("*"):action("concat"):argname("<path>")
-cli:option("-e --ext-files", "Add files or directories to the graph\nas external files that can depend on modules.")
-   :args("*"):count("*"):action("concat"):argname("<path>")
-cli:option("-p --prefix", "Infer module names relatively to <prefix>.")
+   local parser = argparse("luadepgraph", version .. ", dependency analyzer and visualizer for Lua packages.")
 
-cli:mutex(
-   cli:flag("--list", "List all modules and external files. (default)"),
-   cli:option("--show", "Show all information about a module\nor an external file.")
-      :argname("<module>"),
-   cli:flag("--deps", "Show external dependencies of the graph."),
-   cli:flag("--cycles", "Show circular dependencies."),
-   cli:option("--dot", "Print graph representation in .dot format.", "depgraph")
-      :defmode("arg"):argname("<title>"):show_default(false)
-)
+   parser:option("-m --modules", [[Add files, directories or rockspecs
+to the graph as modules.]])
+      :args("*"):count("*"):action("concat"):argname("<path>")
+   parser:option("-e --ext-files", [[Add files or directories to the graph
+as external files that can depend on modules.]])
+      :args("*"):count("*"):action("concat"):argname("<path>")
+   parser:option("-p --prefix", "Infer module names relatively to <prefix>.")
 
-cli:flag("--strict", "Ignore lazy dependencies.")
-cli:option("--root", "Select only dependencies of <root> module\nor external file, recursively.")
+   parser:mutex(
+      parser:flag("--list", "List all modules and external files. (default)"),
+      parser:option("--show", [[Show all information about a module
+or an external file.]])
+         :argname("<module>"),
+      parser:flag("--deps", "Show external dependencies of the graph."),
+      parser:flag("--cycles", "Show circular dependencies."),
+      parser:option("--dot", "Print graph representation in .dot format.", "depgraph")
+         :defmode("arg"):argname("<title>"):show_default(false)
+   )
 
-cli:flag("-v --version", "Show version info and exit.")
-   :action(function() print(version) os.exit(0) end)
+   parser:flag("--strict", "Ignore lazy dependencies.")
+   parser:option("--root", [[Select only dependencies of <root> module
+or external file, recursively.]])
 
-local function main(args)
+   parser:flag("-v --version", "Show version info and exit.")
+      :action(function() print(version) os.exit(0) end)
+
+   local args = parser:parse(argv)
+
    if #args.modules == 0 and #args.ext_files == 0 then
       for path in lfs.dir(".") do
          if path:match("%.rockspec$") and lfs.attributes(path, "mode") == "file" then
@@ -44,8 +56,7 @@ local function main(args)
    local graph, err = depgraph.make_graph(args.modules, args.ext_files, args.prefix, args.strict, args.root)
 
    if not graph then
-      io.stderr:write("Error: ", err, "\n")
-      os.exit(1)
+      fail(err)
    end
 
    local output
@@ -66,10 +77,22 @@ local function main(args)
       print(output)
       os.exit(0)
    else
-      io.stderr:write("Error: ", err, "\n")
-      os.exit(1)
+      fail(err)
    end
 end
 
-cli:action(main)
-return cli
+local function pmain(argv)
+   local _, error_wrapper = utils.try(main, argv)
+
+   local err = error_wrapper.err
+   local traceback = error_wrapper.traceback
+
+   if type(err) == "string" and err:match("interrupted!$") then
+      fail("Interrupted")
+   else
+      fail(("Luadepgraph %s bug (please report at https://github.com/mpeterv/depgraph/issues):\n%s\n%s"):format(
+         depgraph._VERSION, err, traceback))
+   end
+end
+
+return pmain

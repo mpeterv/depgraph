@@ -1,2 +1,2 @@
 #!/usr/bin/env lua
-require("depgraph.cli"):parse(arg)
+require("depgraph.cli")(arg)

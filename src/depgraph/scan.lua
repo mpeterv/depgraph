@@ -19,9 +19,9 @@ local function add_require(requires, req_node, arg_node, nested, protected, cond
 
    if arg_node then
       if arg_node.tag == "String" then
-         name = arg_node[1]
+         name = arg_node[1]:gsub("/", ".")
       elseif arg_node.tag == "Op" and arg_node[1] == "concat" and arg_node[2].tag == "String" then
-         name = (arg_node[2][1]:match("^(.*%.)") or "") .. "*"
+         name = (arg_node[2][1]:gsub("/", "."):match("^(.*%.)") or "") .. "*"
       end
    end
 

@@ -33,6 +33,11 @@ describe("scan", function()
       assert.same({{line = 1, column = 1, name = "foo.bar.*"}}, scan("require('foo.bar.'..x); unrelated 'bar'"))
    end)
 
+   it("replaces slashes with dots in dependency name", function()
+      assert.same({{line = 1, column = 1, name = "foo.bar"}}, scan("require 'foo/bar'"))
+      assert.same({{line = 1, column = 1, name = "foo.bar.*"}}, scan("require('foo/bar/'..x)"))
+   end)
+
    it("detects require with any argument", function()
       assert.same({{line = 1, column = 1, name = "*"}}, scan("require(x); unrelated 'bar'"))
    end)

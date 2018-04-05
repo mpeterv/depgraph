@@ -14,10 +14,12 @@ cli:option("-p --prefix", "Infer module names relatively to <prefix>.")
 
 cli:mutex(
    cli:flag("--list", "List all modules and external files. (default)"),
-   cli:option("--show", "Show all information about a module\nor an external file."):argname("<module>"),
+   cli:option("--show", "Show all information about a module\nor an external file.")
+      :argname("<module>"),
    cli:flag("--deps", "Show external dependencies of the graph."),
    cli:flag("--cycles", "Show circular dependencies."),
-   cli:option("--dot", "Print graph representation in .dot format.", "depgraph"):defmode("arg"):argname("<title>"):show_default(false)
+   cli:option("--dot", "Print graph representation in .dot format.", "depgraph")
+      :defmode("arg"):argname("<title>"):show_default(false)
 )
 
 cli:flag("--strict", "Ignore lazy dependencies.")

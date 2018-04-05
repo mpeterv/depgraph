@@ -85,7 +85,7 @@ describe("cli", function()
          ]]), run("-m missing.lua --list"))
       end)
    end)
-   
+
    describe("show", function()
       it("shows", function()
          assert.equal(dedent([[

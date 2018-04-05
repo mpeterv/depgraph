@@ -95,7 +95,7 @@ local function group_by_module(requires, strict)
    for _, require_table in ipairs(requires) do
       if not strict or not require_table.lazy then
          local dep = name_to_dep[require_table.name]
-         
+
          if not dep then
             dep = {
                name = require_table.name,
@@ -263,11 +263,13 @@ local function add_lua_files_from_dir(graph, dir, prefix_dir, ext)
 
          if lfs.attributes(full_path, "mode") == "directory" then
             ok, err = add_lua_files_from_dir(graph, full_path, prefix_dir, ext)
-         elseif lfs.attributes(full_path, "mode") == "file" and (path:match("%.lua$") or ext and loadfile(full_path)) then
-            if ext then
-               ok, err = add_ext_file(graph, full_path)
-            else
-               ok, err = add_file(graph, full_path, prefix_dir)
+         elseif lfs.attributes(full_path, "mode") == "file" then
+            if path:match("%.lua$") or (ext and loadfile(full_path)) then
+               if ext then
+                  ok, err = add_ext_file(graph, full_path)
+               else
+                  ok, err = add_file(graph, full_path, prefix_dir)
+               end
             end
          end
 
@@ -476,7 +478,15 @@ function depgraph.show(graph, name)
       for _, file_list in ipairs({graph.modules, graph.ext_files}) do
          for _, dependant in ipairs(file_list) do
             for _, dep in ipairs(dependant.deps) do
-               if dep.name == name or (dep.name:match("%.%*$") and dep.name:sub(1, -2) == name:sub(1, #dep.name - 1)) then
+               local dep_matches
+
+               if dep.name:match("%.%*$") then
+                  dep_matches = dep.name:sub(1, -2) == name:sub(1, #dep.name - 1)
+               else
+                  dep_matches = dep.name == name
+               end
+
+               if dep_matches then
                   table.insert(matching_deps, dep)
                   local label = dependant.name
 

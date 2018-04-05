@@ -1,12 +1,16 @@
 local lexer = require "depgraph.luacheck.lexer"
 local utils = require "depgraph.luacheck.utils"
 
+local parser = {}
+
 local function new_state(src)
    return {
       lexer = lexer.new_state(src),
       code_lines = {}, -- Set of line numbers containing code.
+      line_endings = {}, -- Maps line numbers to "comment", "string", or nil based on whether
+                         -- the line ending is within a token.
       comments = {}, -- Array of {comment = string, location = location}.
-      hanging_semicolons = {} -- Array of locations of semicolons not following an expression or goto.
+      hanging_semicolons = {} -- Array of locations of semicolons not following a statement.
    }
 end
 
@@ -18,25 +22,52 @@ local function location(state)
    }
 end
 
+parser.SyntaxError = utils.class()
+
+function parser.SyntaxError:__init(loc, end_column, msg)
+   self.line = loc.line
+   self.column = loc.column
+   self.end_column = end_column
+   self.msg = msg
+end
+
+function parser.syntax_error(loc, end_column, msg)
+   error(parser.SyntaxError(loc, end_column, msg), 0)
+end
+
 local function token_body_or_line(state)
    return state.lexer.src:sub(state.offset, state.lexer.offset - 1):match("^[^\r\n]*")
+end
+
+local function mark_line_endings(state, first_line, last_line, token_type)
+   for line = first_line, last_line - 1 do
+      state.line_endings[line] = token_type
+   end
 end
 
 local function skip_token(state)
    while true do
       local err_end_column
-      state.token, state.token_value, state.line, state.column, state.offset, err_end_column = lexer.next_token(state.lexer)
+      state.token, state.token_value, state.line,
+         state.column, state.offset, err_end_column = lexer.next_token(state.lexer)
 
       if not state.token then
-         lexer.syntax_error(state, err_end_column, state.token_value)
+         parser.syntax_error(state, err_end_column, state.token_value)
       elseif state.token == "comment" then
          state.comments[#state.comments+1] = {
             contents = state.token_value,
             location = location(state),
             end_column = state.column + #token_body_or_line(state) - 1
          }
+
+         mark_line_endings(state, state.line, state.lexer.line, "comment")
       else
-         state.code_lines[state.line] = true
+         if state.token ~= "eof" then
+            mark_line_endings(state, state.line, state.lexer.line, "string")
+            state.code_lines[state.line] = true
+            state.code_lines[state.lexer.line] = true
+         end
+
          break
       end
    end
@@ -79,7 +110,7 @@ local function parse_error(state, msg)
       token_repr = lexer.quote(token_repr)
    end
 
-   lexer.syntax_error(state, end_column, msg .. " near " .. token_repr)
+   parser.syntax_error(state, end_column, msg .. " near " .. token_repr)
 end
 
 local function check_token(state, token)
@@ -181,6 +212,7 @@ simple_expressions["{"] = function(state)
       else
          local lhs, rhs
          local item_location = location(state)
+         local first_key_token
 
          if state.token == "name" then
             local name = state.token_value
@@ -188,6 +220,7 @@ simple_expressions["{"] = function(state)
 
             if test_and_skip_token(state, "=") then
                -- `name` = `expr`.
+               first_key_token = name
                lhs = init_ast_node({name}, item_location, "String")
                rhs, is_inside_parentheses = parse_expression(state)
             else
@@ -197,26 +230,25 @@ simple_expressions["{"] = function(state)
                state.lexer.line_offset = item_location.offset-item_location.column+1
                state.lexer.offset = item_location.offset
                skip_token(state)  -- Load name again.
-               rhs, is_inside_parentheses = parse_expression(state)
+               rhs, is_inside_parentheses = parse_expression(state, nil, true)
             end
+         elseif state.token == "[" then
+            -- [ `expr` ] = `expr`.
+            item_location = location(state)
+            first_key_token = "["
+            skip_token(state)
+            lhs = parse_expression(state)
+            check_closing_token(state, "[", "]", item_location.line)
+            check_and_skip_token(state, "=")
+            rhs = parse_expression(state)
          else
-            local bracket_line = state.line
-
-            if test_and_skip_token(state, "[") then
-               -- [ `expr` ] = `expr`.
-               lhs = parse_expression(state)
-               check_closing_token(state, "[", "]", bracket_line)
-               check_and_skip_token(state, "=")
-               rhs = parse_expression(state)
-            else
-               -- Expression in array part.
-               rhs, is_inside_parentheses = parse_expression(state)
-            end
+            -- Expression in array part.
+            rhs, is_inside_parentheses = parse_expression(state, nil, true)
          end
 
          if lhs then
             -- Pair.
-            ast_node[#ast_node+1] = init_ast_node({lhs, rhs}, item_location, "Pair")
+            ast_node[#ast_node+1] = init_ast_node({lhs, rhs, first_token = first_key_token}, item_location, "Pair")
          else
             -- Array part item.
             ast_node[#ast_node+1] = rhs
@@ -259,19 +291,6 @@ simple_expressions["function"] = function(state)
    local function_location = location(state)
    skip_token(state)  -- Skip "function".
    return parse_function(state, function_location)
-end
-
-local function parse_prefix_expression(state, kind)
-   if state.token == "name" then
-      return parse_id(state)
-   elseif state.token == "(" then
-      skip_token(state)  -- Skip "("
-      local expression = parse_expression(state)
-      check_and_skip_token(state, ")")
-      return expression
-   else
-      parse_error(state, "expected " .. (kind or "expression"))
-   end
 end
 
 local calls = {}
@@ -324,26 +343,42 @@ end
 suffixes["{"] = suffixes["("]
 suffixes.string = suffixes["("]
 
--- Additionally returns whether primary expression is prefix expression.
-local function parse_primary_expression(state, kind)
-   local expression = parse_prefix_expression(state, kind)
-   local is_prefix = true
+-- Additionally returns whether the expression is inside parens and the first non-paren token.
+local function parse_simple_expression(state, kind, no_literals)
+   local expression, first_token
+   local in_parens = false
+
+   if state.token == "(" then
+      in_parens = true
+      local paren_line = state.line
+      skip_token(state)
+      local _
+      expression, _, first_token = parse_expression(state)
+      check_closing_token(state, "(", ")", paren_line)
+   elseif state.token == "name" then
+      expression = parse_id(state)
+      first_token = expression[1]
+   else
+      local literal_handler = simple_expressions[state.token]
+
+      if not literal_handler or no_literals then
+         parse_error(state, "expected " .. (kind or "expression"))
+      end
+
+      first_token = token_body_or_line(state)
+      return literal_handler(state), false, first_token
+   end
 
    while true do
-      local handler = suffixes[state.token]
+      local suffix_handler = suffixes[state.token]
 
-      if handler then
-         is_prefix = false
-         expression = handler(state, expression)
+      if suffix_handler then
+         in_parens = false
+         expression = suffix_handler(state, expression)
       else
-         return expression, is_prefix
+         return expression, in_parens, first_token
       end
    end
-end
-
--- Additionally returns whether simple expression is prefix expression.
-local function parse_simple_expression(state, kind)
-   return (simple_expressions[state.token] or parse_primary_expression)(state, kind)
 end
 
 local unary_operators = {
@@ -397,19 +432,21 @@ local right_priorities = {
    ["and"] = 2, ["or"] = 1
 }
 
--- Additionally returns whether subexpression is prefix expression.
+-- Additionally returns whether subexpression is inside parentheses, and its first non-paren token.
 local function parse_subexpression(state, limit, kind)
    local expression
-   local is_prefix
+   local first_token
+   local in_parens = false
    local unary_operator = unary_operators[state.token]
 
    if unary_operator then
+      first_token = state.token
       local unary_location = location(state)
       skip_token(state)  -- Skip operator.
       local unary_operand = parse_subexpression(state, unary_priority)
       expression = init_ast_node({unary_operator, unary_operand}, unary_location, "Op")
    else
-      expression, is_prefix = parse_simple_expression(state, kind)
+      expression, in_parens, first_token = parse_simple_expression(state, kind)
    end
 
    -- Expand while operators have priorities higher than `limit`.
@@ -420,22 +457,21 @@ local function parse_subexpression(state, limit, kind)
          break
       end
 
-      is_prefix = false
+      in_parens = false
       skip_token(state)  -- Skip operator.
       -- Read subexpression with higher priority.
       local subexpression = parse_subexpression(state, right_priorities[binary_operator])
       expression = init_ast_node({binary_operator, expression, subexpression}, expression.location, "Op")
    end
 
-   return expression, is_prefix
+   return expression, in_parens, first_token
 end
 
--- Additionally returns whether expression is inside parentheses.
+-- Additionally returns whether expression is inside parentheses and the first non-paren token.
 function parse_expression(state, kind, save_first_token)
-   local first_token = token_body_or_line(state)
-   local expression, is_prefix = parse_subexpression(state, 0, kind)
+   local expression, in_parens, first_token = parse_subexpression(state, 0, kind)
    expression.first_token = save_first_token and first_token
-   return expression, is_prefix and first_token == "("
+   return expression, in_parens, first_token
 end
 
 local statements = {}
@@ -624,14 +660,13 @@ local function parse_expression_statement(state, loc)
    local lhs
 
    repeat
-      local first_token = state.token
       local first_loc = lhs and location(state) or loc
       local expected = lhs and "identifier or field" or "statement"
-      local primary_expression, is_prefix = parse_primary_expression(state, expected)
+      local primary_expression, in_parens = parse_simple_expression(state, expected, true)
 
-      if is_prefix and first_token == "(" then
+      if in_parens then
          -- (expr) is invalid.
-         lexer.syntax_error(first_loc, first_loc.column, "expected " .. expected .. " near '('")
+         parser.syntax_error(first_loc, first_loc.column, "expected " .. expected .. " near '('")
       end
 
       if primary_expression.tag == "Call" or primary_expression.tag == "Invoke" then
@@ -694,7 +729,7 @@ function parse_block(state, loc)
             -- "return" must be the last statement.
             -- However, one ";" after it is allowed.
             test_and_skip_token(state, ";")
-            
+
             if not closing_tokens[state.token] then
                parse_error(state, "expected end of block")
             end
@@ -707,14 +742,16 @@ end
 
 -- Parses source string.
 -- Returns AST (in almost MetaLua format), array of comments - tables {comment = string, location = location},
--- set of line numbers containing code, and array of locations of empty statements (semicolons).
--- On error throws {line = line, column = column, end_column = end_column, msg = msg}
-local function parse(src)
+-- set of line numbers containing code, map of types of tokens wrapping line endings (nil, "string", or "comment"),
+-- and array of locations of empty statements (semicolons).
+-- On error throws {line = line, column = column, end_column = end_column, msg = msg} - an instance
+-- of parser.SyntaxError.
+function parser.parse(src)
    local state = new_state(src)
    skip_token(state)
    local ast = parse_block(state)
    check_token(state, "eof")
-   return ast, state.comments, state.code_lines, state.hanging_semicolons
+   return ast, state.comments, state.code_lines, state.line_endings, state.hanging_semicolons
 end
 
-return parse
+return parser

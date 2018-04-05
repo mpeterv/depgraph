@@ -1,4 +1,4 @@
-local parse = require "depgraph.luacheck.parser"
+local parser = require "depgraph.luacheck.parser"
 local linearize = require "depgraph.luacheck.linearize"
 local utils = require "depgraph.luacheck.utils"
 
@@ -148,7 +148,7 @@ local function location_comparator(req1, req2)
 end
 
 local function scan_or_throw_syntax_error(src)
-   local ast = parse(src)
+   local ast = parser.parse(src)
    linearize(chstate_stub, ast)
 
    local requires = {}
@@ -175,12 +175,14 @@ end
 -- 'protected' key with true value for a call using 'pcall' or 'xpcall'.
 -- On syntax error return nil, error message.
 local function scan(src)
-   local modules, err = utils.pcall(scan_or_throw_syntax_error, src)
+   local ok, res = utils.try(scan_or_throw_syntax_error, src)
 
-   if modules then
-      return modules
+   if ok then
+      return res
+   elseif utils.is_instance(res.err, parser.SyntaxError) then
+      return nil, ("syntax error on line %d, column %d: %s"):format(res.err.line, res.err.column, res.err.msg)
    else
-      return nil, ("syntax error on line %d, column %d: %s"):format(err.line, err.column, err.msg)
+      error(res, 0)
    end
 end
 

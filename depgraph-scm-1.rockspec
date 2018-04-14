@@ -21,7 +21,7 @@ image using GraphViz. It can also detect circular and external dependencies.
 }
 dependencies = {
    "lua >= 5.1, < 5.4",
-   "argparse >= 0.5.0",
+   "argparse >= 0.6.0",
    "luafilesystem >= 1.6.3"
 }
 build = {

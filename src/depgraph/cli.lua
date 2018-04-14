@@ -12,19 +12,20 @@ local function main(argv)
    local version = "depgraph v" .. depgraph._VERSION
 
    local parser = argparse("luadepgraph", version .. ", dependency analyzer and visualizer for Lua packages.")
+      :help_max_width(80)
+      :help_description_margin(29)
+      :usage_margin(3)
 
-   parser:option("-m --modules", [[Add files, directories or rockspecs
-to the graph as modules.]])
+   parser:option("-m --modules", "Add files, directories or rockspecs to the graph as modules.")
       :args("*"):count("*"):action("concat"):argname("<path>")
-   parser:option("-e --ext-files", [[Add files or directories to the graph
-as external files that can depend on modules.]])
+   parser:option("-e --ext-files", "Add files or directories to the graph as external files " ..
+      "that can depend on modules.")
       :args("*"):count("*"):action("concat"):argname("<path>")
    parser:option("-p --prefix", "Infer module names relatively to <prefix>.")
 
    parser:mutex(
       parser:flag("--list", "List all modules and external files. (default)"),
-      parser:option("--show", [[Show all information about a module
-or an external file.]])
+      parser:option("--show", "Show all information about a module or an external file.")
          :argname("<module>"),
       parser:flag("--deps", "Show external dependencies of the graph."),
       parser:flag("--cycles", "Show circular dependencies."),
@@ -33,8 +34,7 @@ or an external file.]])
    )
 
    parser:flag("--strict", "Ignore lazy dependencies.")
-   parser:option("--root", [[Select only dependencies of <root> module
-or external file, recursively.]])
+   parser:option("--root", "Select only dependencies of <root> module or external file, recursively.")
 
    parser:flag("-v --version", "Show version info and exit.")
       :action(function() print(version) os.exit(0) end)

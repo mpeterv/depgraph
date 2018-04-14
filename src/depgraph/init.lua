@@ -3,7 +3,7 @@ local scan = require "depgraph.scan"
 
 local depgraph = {}
 
-depgraph._VERSION = "0.1.1"
+depgraph._VERSION = "0.2.0"
 
 local function normalize_io_error(name, err)
    if err:sub(1, #name + 2) == (name .. ": ") then
